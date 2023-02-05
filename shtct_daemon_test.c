@@ -21,34 +21,38 @@ typedef struct keycodes_structure
 
 void date_and_time(char*);
 int kbd_read(KSTR*);
-int key_detect(int key_code, ssize_t* n,int* fd,struct input_event* ev, KSTR* kbd_array, int recurse);//function containing only loop part to make recursion possible
-int keyboard_listener(int key_code);
+int key_detect(int* key_code, ssize_t* n,int* fd,struct input_event* ev, KSTR* kbd_array, int recurse);//function containing only loop part to make recursion possible
+int keyboard_listener(int* activation_key_code);
 
 int main()
 {
     FILE *fp;
-    int key_code = 42;
+    int activation_key_codes[4] = {42,54,48,-1}; // save last element as -1 to denote end
     // while(1)
     // {
-        if(keyboard_listener(key_code))
+        if(keyboard_listener(activation_key_codes))
         {
             printf("Both shifts pressed\n");
+
             char buffer[50];
-            float bright_value = 0.9;
+            float bright_value = 1;
             sprintf(buffer,"./scripts/brightc.sh %0.2f", bright_value);
-            // printf("\nMoment of truth-> %s\n",buffer);
             fp = popen(buffer,"r");
             if(fp == NULL)
             {
                 printf("popen failed to open brightc.sh sed \n");
-            }
+            }    
+            
+            //float buffer = 0.8; 
+            // fp = popen("./scripts/brightc.sh","w");
+            // fwrite(&buffer,sizeof(float),1,fp);
             pclose(fp);
         }
     // }
     return 1;
 }
 
-int keyboard_listener(int key_code)
+int keyboard_listener(int* activation_key_codes)
 {
     const char *kbd_path = "/dev/input/event11";
     struct input_event ev;
@@ -56,6 +60,8 @@ int keyboard_listener(int key_code)
     ssize_t n;
     KSTR kbd_array[85];
     int kbd_array_status;
+    int key_detect_return;
+    int recurse = 0;
 
     kbd_array_status = kbd_read(kbd_array);
     
@@ -65,12 +71,16 @@ int keyboard_listener(int key_code)
         printf("Failed to open required files. Terminating.\n");
         exit(0);
     }
-    int key_detect_return = key_detect(key_code,&n,&fd,&ev,kbd_array,1);
+    if(activation_key_codes[1] != -1)
+    {
+        recurse = 1;
+    }
+    key_detect_return = key_detect(activation_key_codes,&n,&fd,&ev,kbd_array,recurse);
     close(fd);
     return key_detect_return;
 }
 
-int key_detect(int key_code, ssize_t* n,int* fd,struct input_event* ev, KSTR* kbd_array, int recurse)
+int key_detect(int* activation_key_codes, ssize_t* n,int* fd,struct input_event* ev, KSTR* kbd_array, int recurse)
 {
     char timenow[30];
     while(1)
@@ -92,13 +102,17 @@ int key_detect(int key_code, ssize_t* n,int* fd,struct input_event* ev, KSTR* kb
         if(((*ev).type == EV_KEY) && ((*ev).value <=2 && (*ev).value >=0))
         {
             date_and_time(timenow);
-            if((*ev).code == key_code && recurse == 1 && ((*ev).value == 1 || (*ev).value == 2))
+            if((*ev).code == activation_key_codes[0] && recurse == 1 && ((*ev).value == 1 || (*ev).value == 2))
             {
-                printf("\n\nI am now going to call the nonrecursed version of the same function \n");    
-                return key_detect(54,n,fd,ev,kbd_array,0);
+                if((activation_key_codes+1)[1] == -1)
+                {
+                    recurse = 0;
+                }
+                printf("\n\nI am now going to call the same function \n");    
+                return key_detect(activation_key_codes+1,n,fd,ev,kbd_array,recurse);
                 // printf("type:%d value:%d code:%d\n",(*ev).type,(*ev).value,(*ev).code);
             }
-            else if((*ev).code == key_code && recurse ==0 && ((*ev).value == 1 || (*ev).value == 2))
+            else if((*ev).code == activation_key_codes[0] && recurse ==0 && ((*ev).value == 1 || (*ev).value == 2))
             {    
                 printf("\n\n I am done and will now be returning 1 \n");    
                 return 1;
