@@ -28,8 +28,6 @@ int main()
 {
     FILE *fp;
     int activation_key_codes[4] = {42,54,48,-1}; // save last element as -1 to denote end
-    // while(1)
-    // {
         if(keyboard_listener(activation_key_codes))
         {
             printf("Both shifts pressed\n");
@@ -41,14 +39,9 @@ int main()
             if(fp == NULL)
             {
                 printf("popen failed to open brightc.sh sed \n");
-            }    
-            
-            //float buffer = 0.8; 
-            // fp = popen("./scripts/brightc.sh","w");
-            // fwrite(&buffer,sizeof(float),1,fp);
+            }
             pclose(fp);
         }
-    // }
     return 1;
 }
 
@@ -64,7 +57,6 @@ int keyboard_listener(int* activation_key_codes)
     int recurse = 0;
 
     kbd_array_status = kbd_read(kbd_array);
-    
     fd = open(kbd_path,O_RDONLY);
     if(fd == -1 || !kbd_array_status)
     {
@@ -75,6 +67,7 @@ int keyboard_listener(int* activation_key_codes)
     {
         recurse = 1;
     }
+    
     key_detect_return = key_detect(activation_key_codes,&n,&fd,&ev,kbd_array,recurse);
     close(fd);
     return key_detect_return;
@@ -98,10 +91,8 @@ int key_detect(int* activation_key_codes, ssize_t* n,int* fd,struct input_event*
         {
             continue;
         }
-        // printf("type:%d value:%d code:%d\n",(*ev).type,(*ev).value,(*ev).code);
         if(((*ev).type == EV_KEY) && ((*ev).value <=2 && (*ev).value >=0))
         {
-            date_and_time(timenow);
             if((*ev).code == activation_key_codes[0] && recurse == 1 && ((*ev).value == 1 || (*ev).value == 2))
             {
                 if((activation_key_codes+1)[1] == -1)
@@ -110,16 +101,12 @@ int key_detect(int* activation_key_codes, ssize_t* n,int* fd,struct input_event*
                 }
                 printf("\n\nI am now going to call the same function \n");    
                 return key_detect(activation_key_codes+1,n,fd,ev,kbd_array,recurse);
-                // printf("type:%d value:%d code:%d\n",(*ev).type,(*ev).value,(*ev).code);
             }
             else if((*ev).code == activation_key_codes[0] && recurse ==0 && ((*ev).value == 1 || (*ev).value == 2))
             {    
                 printf("\n\n I am done and will now be returning 1 \n");    
                 return 1;
-                // printf("type:%d value:%d code:%d\n",(*ev).type,(*ev).value,(*ev).code);
-            }    
-            // else
-                // return 0;
+            }
         }
     }
 }
@@ -142,13 +129,4 @@ int kbd_read(KSTR* kbd_array)
     }
     fclose(key_codes_fp);
     return 1;
-}
-
-void date_and_time(char *timenow)
-{
-    struct tm *time_info;
-    time_t t;
-    time(&t);
-    time_info = localtime(&t);
-    strftime(timenow,30,"%x - %X",time_info);
 }
