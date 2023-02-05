@@ -26,12 +26,23 @@ int keyboard_listener(int key_code);
 
 int main()
 {
+    FILE *fp;
     int key_code = 42;
     // while(1)
     // {
         if(keyboard_listener(key_code))
         {
             printf("Both shifts pressed\n");
+            char buffer[50];
+            float bright_value = 0.9;
+            sprintf(buffer,"./scripts/brightc.sh %0.2f", bright_value);
+            // printf("\nMoment of truth-> %s\n",buffer);
+            fp = popen(buffer,"r");
+            if(fp == NULL)
+            {
+                printf("popen failed to open brightc.sh sed \n");
+            }
+            pclose(fp);
         }
     // }
     return 1;
@@ -39,7 +50,7 @@ int main()
 
 int keyboard_listener(int key_code)
 {
-    const char *kbd_path = "/dev/input/event2";
+    const char *kbd_path = "/dev/input/event11";
     struct input_event ev;
     int fd;
     ssize_t n;
