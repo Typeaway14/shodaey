@@ -57,7 +57,7 @@ int main()
 
 int init()
 {
-    const char *kbd_path = "/dev/input/event11";
+    const char *kbd_path = "/dev/input/event2";
     fd = open(kbd_path,O_RDONLY);
     if(fd == -1)
     {

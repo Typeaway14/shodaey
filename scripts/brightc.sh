@@ -10,7 +10,7 @@ VALUE=${1:-1}
 if [[ $VALUE > 0.19999 && $VALUE < 1.00001 ]];
 then
 	#xrandr --output 'name' --brightness $VALUE
-	xrandr --output HDMI-A-0 --brightness $VALUE
+	xrandr --output eDP --brightness $VALUE
 else
 	echo "Please provide value >0.2 and lesser than 1"
 fi
