@@ -1,3 +1,5 @@
+//proof of concept code; will be removed later
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<linux/input.h>//structure definition of input_event is here
