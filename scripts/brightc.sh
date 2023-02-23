@@ -7,10 +7,10 @@
 
 VALUE=${1:-1}
 
-if [[ $VALUE > 0.19999 && $VALUE < 1.00001 ]];
+if [[ $VALUE < 1.50001 ]];
 then
 	#xrandr --output 'name' --brightness $VALUE
 	xrandr --output eDP --brightness $VALUE
 else
-	echo "Please provide value >0.2 and lesser than 1"
+	echo "Please provide value lesser than 1"
 fi

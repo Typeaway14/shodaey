@@ -11,29 +11,29 @@ typedef struct activation_keys_status
 {
     int act_key_code[3];
     int positions[84];
-    int pause;
-    int esc; //always set to 0, but if esc key is pressed, it is set to one and the programs resets
     int run_script;
 }ACT_KEY;
 
 ACT_KEY* act_key;
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t act_key_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t wait_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 
-int fd; // global variable file descriptor for kbd_path
+int kbd_fd; // global variable file descriptor for kbd_path
 
-void* key_detect(void *array_position);//function containing only loop part to make recursion possible
-void* check_activate(void* unused_variable);
+void* key_detect();//function containing only loop part to make recursion possible
+void* check_activate();
 int init(int, int);
 void keyboard_listener(int* key_details);
 int alter_step(char *script_path, float max, float min, float step);
 int script_runner();
-void sigint_handler();//not implemented properly; try later
+void signal_handlers();
+void sigint_handler();
+void sigtstp_handler();
 
 int main()
 {
-    // signal(SIGINT,sigint_handler);
+    signal_handlers();
     act_key = (ACT_KEY*)malloc(sizeof(ACT_KEY));
     if(!init(42,54))
     {
@@ -48,15 +48,15 @@ int main()
     pthread_join(thread_k1,NULL);
     pthread_join(thread_k2,NULL);
     free(act_key);
-    close(fd);
+    close(kbd_fd);
     return 1;
 }
 
 int init(int k1, int k2)
 {
     const char *kbd_path = "/dev/input/event2";
-    fd = open(kbd_path,O_RDONLY);
-    if(fd == -1)
+    kbd_fd = open(kbd_path,O_RDONLY);
+    if(kbd_fd == -1)
     {
         printf("Failed to open required files. Terminating.\n");
         return 0;
@@ -66,24 +66,22 @@ int init(int k1, int k2)
     act_key->act_key_code[1] = k2;
     for(int i = 0; i < 84; i ++)
         act_key->positions[i] = 0;
-    act_key->pause = 0;
-    act_key->esc = 0;
     act_key->run_script = 0;
 
     return 1;
 }
 
-void* key_detect(void* unused_variable)
+void* key_detect()
 {
     
-    struct input_event ev;
+    struct input_event kbd_ev;
     ssize_t read_return;
     while(1)
     {
-        read_return = read(fd, &ev, sizeof(struct input_event));
+        read_return = read(kbd_fd, &kbd_ev, sizeof(struct input_event));
         if(read_return == (ssize_t)-1)
         {
-            if(errno = EINTR)//Read into this
+            if(errno = EINTR)
                 continue;
             else
                 break;
@@ -92,76 +90,75 @@ void* key_detect(void* unused_variable)
         {
             continue;
         }
-        if((ev.type == EV_KEY) && (ev.value <=2 && ev.value >=0))
+        if((kbd_ev.type == EV_KEY) && (kbd_ev.value <=2 && kbd_ev.value >=0))
         {
-            if(ev.value == 1 || ev.value ==2)
+            if(kbd_ev.value == 1 || kbd_ev.value ==2)
             {
-                act_key->positions[ev.code] = 1;
+                act_key->positions[kbd_ev.code] = 1;
             }
-            else if(ev.value == 0)
+            else if(kbd_ev.value == 0)
             {
-                act_key->positions[ev.code] = 0;
+                act_key->positions[kbd_ev.code] = 0;
             }
         }
         if((act_key->positions[act_key->act_key_code[0]] == 1 && act_key->positions[act_key->act_key_code[1]] == 1))
         {
-            pthread_mutex_lock(&lock);
+            pthread_mutex_lock(&act_key_lock);
             act_key->run_script = 1;
-            pthread_mutex_unlock(&lock);
+            pthread_mutex_unlock(&act_key_lock);
             pthread_cond_wait(&condition,&wait_lock);
-            // act_key->run_script = 0;
+            act_key->run_script = 0;
         }
-    }
-    
+    }   
 }
 
 void keyboard_listener(int* key_details) // returns value of any keyboard event that is pressed
 {
-    struct input_event ev;
+    struct input_event kbd_ev;
     ssize_t read_return;
     while(1)
     {
-        read_return = read(fd, &ev, sizeof(ev));
+        read_return = read(kbd_fd, &kbd_ev, sizeof(kbd_ev));
         if(read_return == (ssize_t)-1)
         {
-            if(errno = EINTR)//Read into this
+            if(errno = EINTR)
                 continue;
             else
                 break;
         }
-        if (read_return != sizeof(ev))
+        if (read_return != sizeof(kbd_ev))
         {
-            errno = EIO;//Read into this
+            errno = EIO;
             continue;
         }
-        if((ev.type == EV_KEY)) // 0->release ; 1->keypress ; 2->hold
+        if((kbd_ev.type == EV_KEY)) // 0->release ; 1->keypress ; 2->hold
         {
-            key_details[0] = ev.code;
-            key_details[1] = ev.value;
+            key_details[0] = kbd_ev.code;
+            key_details[1] = kbd_ev.value;
             return;
         }
     }
 }
 
-void* check_activate(void* unused_variable) // does this need to exist in a separate thread?
+void* check_activate()
 {
-    // int running_flag = 0;
-    while(1)//act_key->esc != 1)
+    int ch;
+    while(1)
     {
-        pthread_mutex_lock(&lock);
         if(act_key->run_script == 1)
         {
-            // running_flag = 1;
             printf("Im here nice\n"); 
-            if(script_runner())
+            ch = script_runner();
+            if(ch)
             {
+                pthread_mutex_lock(&act_key_lock);
                 act_key->run_script = 0;
+                act_key->positions[act_key->act_key_code[0]] = 0;
+                act_key->positions[act_key->act_key_code[1]] = 0;
                 pthread_cond_signal(&condition);
-                // running_flag = 0;
-                //act_key->esc = 0;
+                pthread_mutex_unlock(&act_key_lock);
             }
         }
-        pthread_mutex_unlock(&lock);
     }
 }
 
@@ -170,14 +167,14 @@ int script_runner()
     printf("Entered Script Runner\n");
     system("./scripts/ledcont.sh 1");
     int key_details[2];
-    while(1)//act_key->esc != 1)
+    while(1)
     {
         keyboard_listener(key_details);
         switch(key_details[0])
         {
-            case 48:
+            case 48: // 48 is code for B
                 printf("Brightness control activated\n");
-                if(alter_step("./scripts/brightc.sh %0.2f",1.0,0.2,0.05))
+                if(alter_step("./scripts/brightc.sh %0.2f",1.5,0.0,0.05))
                 {
                     return 48;
                 }
@@ -185,9 +182,8 @@ int script_runner()
             break;
             //add on more codes here
 
-            case 1:
+            case 1: // 1 is code for esc
                 system("./scripts/ledcont.sh 0");
-                act_key->esc = 1;
                 return -1;
             break;
             default:
@@ -203,7 +199,7 @@ int alter_step(char *script_path, float max, float min, float step)
 {
     printf("Entered alter_step\n");
     int key_details[2];
-    float current_value = max;
+    float current_value = 1.0;
     char buffer[50];
     do
     {
@@ -222,16 +218,30 @@ int alter_step(char *script_path, float max, float min, float step)
         {
             printf("Exiting alter_step\n");
             system("./scripts/ledcont.sh 0");
-            act_key->esc = 1;
             return 1;
         }  
     }
-    while(1);//act_key->esc != 1);
+    while(1);
     return 0;
 }
 
-// void sigint_handler()
-// {
-//     free(act_key);
-//     exit(0);   
-// }
+void signal_handlers()
+{
+    signal(SIGINT,sigint_handler);
+    signal(SIGTSTP,sigtstp_handler);
+}
+
+void sigint_handler()
+{
+    signal(SIGINT,sigint_handler);
+    printf("SIGINT detected, ignoring...\n");
+    return;
+}
+
+void sigtstp_handler()
+{
+    printf("SIGTSTP detected, cleaning and exiting\n");
+    free(act_key);
+    close(kbd_fd);
+    exit(0);   
+}
