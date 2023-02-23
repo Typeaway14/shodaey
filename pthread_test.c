@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
+#include<signal.h>
 #include<linux/input.h>//structure definition of input_event is here
 #include<unistd.h>//read()
 #include<fcntl.h>//has open() and O_RDONLY macro
@@ -24,13 +25,15 @@ int fd; // global variable file descriptor for kbd_path
 
 void* key_detect(void *array_position);//function containing only loop part to make recursion possible
 void* check_activate(void* unused_variable);
-int init(int, int); // last one is the key that decides which alphabet will trigger which script
+int init(int, int);
 void keyboard_listener(int* key_details);
 int alter_step(char *script_path, float max, float min, float step);
 int script_runner();
+void sigint_handler();//not implemented properly; try later
 
 int main()
 {
+    // signal(SIGINT,sigint_handler);
     act_key = (ACT_KEY*)malloc(sizeof(ACT_KEY));
     if(!init(42,54))
     {
@@ -44,6 +47,7 @@ int main()
     printf("dekho dekho, hai shaam badi deewani\n");
     pthread_join(thread_k1,NULL);
     pthread_join(thread_k2,NULL);
+    free(act_key);
     close(fd);
     return 1;
 }
@@ -99,17 +103,6 @@ void* key_detect(void* unused_variable)
                 act_key->positions[ev.code] = 0;
             }
         }
-        // if((act_key->positions[act_key->act_key_code[0]] == 1 && act_key->positions[act_key->act_key_code[1]] == 1))
-        // {
-        //     printf("Im here nice\n"); 
-        //     script_runner();
-        //     if(act_key->esc == 1)
-        //     { 
-        //         act_key->positions[act_key->act_key_code[0]] == 0;
-        //         act_key->esc = 0;
-        //         act_key->positions[act_key->act_key_code[1]] == 0;
-        //     }   
-        // }
         if((act_key->positions[act_key->act_key_code[0]] == 1 && act_key->positions[act_key->act_key_code[1]] == 1))
         {
             pthread_mutex_lock(&lock);
@@ -236,3 +229,9 @@ int alter_step(char *script_path, float max, float min, float step)
     while(1);//act_key->esc != 1);
     return 0;
 }
+
+// void sigint_handler()
+// {
+//     free(act_key);
+//     exit(0);   
+// }
