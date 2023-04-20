@@ -9,9 +9,9 @@
 
 typedef struct activation_keys_status
 {
-    int act_key_code[3];
-    int positions[84];
-    int run_script;
+    int act_key_code[3]; //holds values for which keys activate the script runner
+    int positions[84]; // holds values to detect which keys are pressed
+    int run_script; // flag to indicate whether a script is being run or not
 }ACT_KEY;
 
 ACT_KEY* act_key;
@@ -112,34 +112,6 @@ void* key_detect()
     }   
 }
 
-void keyboard_listener(int* key_details) // returns value of any keyboard event that is pressed
-{
-    struct input_event kbd_ev;
-    ssize_t read_return;
-    while(1)
-    {
-        read_return = read(kbd_fd, &kbd_ev, sizeof(kbd_ev));
-        if(read_return == (ssize_t)-1)
-        {
-            if(errno = EINTR)
-                continue;
-            else
-                break;
-        }
-        if (read_return != sizeof(kbd_ev))
-        {
-            errno = EIO;
-            continue;
-        }
-        if((kbd_ev.type == EV_KEY)) // 0->release ; 1->keypress ; 2->hold
-        {
-            key_details[0] = kbd_ev.code;
-            key_details[1] = kbd_ev.value;
-            return;
-        }
-    }
-}
-
 void* check_activate()
 {
     int ch;
@@ -161,7 +133,6 @@ void* check_activate()
         }
     }
 }
-
 int script_runner()
 {
     printf("Entered Script Runner\n");
@@ -194,6 +165,36 @@ int script_runner()
     }
 
 }
+
+void keyboard_listener(int* key_details) // returns value of any keyboard event that is pressed
+{
+    struct input_event kbd_ev;
+    ssize_t read_return;
+    while(1)
+    {
+        read_return = read(kbd_fd, &kbd_ev, sizeof(kbd_ev));
+        if(read_return == (ssize_t)-1)
+        {
+            if(errno = EINTR)
+                continue;
+            else
+                break;
+        }
+        if (read_return != sizeof(kbd_ev))
+        {
+            errno = EIO;
+            continue;
+        }
+        if((kbd_ev.type == EV_KEY)) // 0->release ; 1->keypress ; 2->hold
+        {
+            key_details[0] = kbd_ev.code;
+            key_details[1] = kbd_ev.value;
+            return;
+        }
+    }
+}
+
+
 
 int alter_step(char *script_path, float max, float min, float step)
 {
